@@ -449,66 +449,46 @@ mbgDB.ref("mbg_message").on("child_added", snap=>{
 });
 </script>
 
+<!-- ===== MESSAGE REALTIME PATCH (FIRESTORE) ===== -->
 <script type="module">
-// ===== FIRESTORE LOGIC OVERRIDE (FINAL) =====
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, collection, addDoc, setDoc, updateDoc, doc, serverTimestamp, onSnapshot, query, orderBy } 
-from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import {
+  getFirestore,
+  collection,
+  addDoc,
+  serverTimestamp,
+  onSnapshot,
+  query,
+  orderBy
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-const ROLE = sessionStorage.getItem("MBG_ROLE");
 
-window.simpanMenu = async function(){
-  if(ROLE !== "PENYEDIA"){ alert("Akses ditolak"); return; }
-  if(!menuTanggal.value || !menuIsi.value){ alert("Lengkapi data"); return; }
-  await addDoc(collection(db,"menu_mbg"),{
-    tanggal: menuTanggal.value,
-    menu: menuIsi.value,
-    createdBy:"penyedia",
-    createdAt: serverTimestamp()
-  });
-  menuIsi.value="";
-};
+const ROLE = (sessionStorage.getItem("MBG_ROLE") || "SEKOLAH").toUpperCase();
 
-onSnapshot(query(collection(db,"menu_mbg"), orderBy("createdAt","desc")), snap=>{
-  const data=[]; snap.forEach(d=>data.push(d.data()));
-  localStorage.setItem("MBG_MENU_LIST", JSON.stringify(data));
-  if(typeof renderMenuList==="function") renderMenuList();
-});
+window.kirimPesan = async function () {
+  const teks = (window.msgInput && msgInput.value || "").trim();
+  if (!teks) return;
 
-window.kirimPesan = async function(){
-  if(!msgInput.value.trim()) return;
-  await addDoc(collection(db,"messages"),{
+  await addDoc(collection(db, "messages"), {
     from: ROLE,
-    text: msgInput.value.trim(),
+    text: teks,
     createdAt: serverTimestamp()
   });
-  msgInput.value="";
+
+  msgInput.value = "";
 };
 
-onSnapshot(query(collection(db,"messages"), orderBy("createdAt")), snap=>{
-  snap.docChanges().forEach(c=>{
-    if(c.type==="added" && typeof tampilkanPesanRealtime==="function"){
-      tampilkanPesanRealtime(c.doc.data());
+const q = query(collection(db, "messages"), orderBy("createdAt"));
+onSnapshot(q, (snap) => {
+  snap.docChanges().forEach((ch) => {
+    if (ch.type === "added") {
+      const d = ch.doc.data();
+      if (typeof tampilkanPesanRealtime === "function") {
+        tampilkanPesanRealtime(d);
+      }
     }
-  });
-});
-
-window.kirimDistribusi = async function(){
-  const t=distTanggal.value, j=parseInt(distJumlah.value,10);
-  if(!t||!j){ alert("Lengkapi"); return; }
-  const ref=doc(db,"distribusi",t);
-  if(ROLE==="PENYEDIA"){
-    await setDoc(ref,{dikirim:j,status_penyedia:"dikirim",updatedAt:serverTimestamp()},{merge:true});
-  }else{
-    await updateDoc(ref,{diterima:j,status_sekolah:"diterima",updatedAt:serverTimestamp()});
-  }
-};
-
-onSnapshot(collection(db,"distribusi"), snap=>{
-  snap.forEach(d=>{
-    if(typeof updateDistribusiUI==="function") updateDistribusiUI(d.id,d.data());
   });
 });
 </script>
