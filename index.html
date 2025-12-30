@@ -145,14 +145,23 @@ document.getElementById(id).classList.remove('hidden');
 
 /* MENU */
 function simpanMenu(){
-const t=menuTanggal.value,m=menuIsi.value;
-if(!t||!m)return alert("Tanggal & menu wajib diisi");
-let data=JSON.parse(localStorage.getItem("MBG_MENU_LIST"))||[];
-data.push({tanggal:t,menu:m});
-localStorage.setItem("MBG_MENU_LIST",JSON.stringify(data));
-dashMenu.innerText=m;
-tampilkanMenuTersimpan();
-alert("Menu berhasil disimpan");
+  const role = sessionStorage.getItem("MBG_ROLE");
+  if(role !== "PENYEDIA"){
+    alert("Akses ditolak. Hanya penyedia yang boleh input menu.");
+    return;
+  }
+  const t = menuTanggal.value;
+  const m = menuIsi.value;
+  if(!t || !m){
+    alert("Tanggal & menu wajib diisi");
+    return;
+  }
+  mbgDB.ref("mbg_menu").push({
+    tanggal: t,
+    menu: m,
+    time: Date.now()
+  });
+  menuIsi.value = "";
 }
 function tampilkanMenuTersimpan(){
 let data=JSON.parse(localStorage.getItem("MBG_MENU_LIST"))||[];
@@ -182,9 +191,10 @@ dashDistribusi.innerText="Distribusi selesai";
 
 /* MESSAGE */
 function kirimPesan(){
-chatBox.innerHTML+=`<div class="chat provider">${msgInput.value}</div>`;
-dashMsg.innerText=msgInput.value;
-msgInput.value='';
+  const teks = msgInput.value.trim();
+  if(!teks) return;
+  kirimPesanOnline(teks);
+  msgInput.value = "";
 }
 
 /* LAPORAN */
@@ -300,7 +310,7 @@ function loginMBG(){
   const pass = document.getElementById("mbgPassword").value;
   if(!role){ alert("Pilih role terlebih dahulu"); return; }
   if(pass !== "56789"){ alert("Password salah"); return; }
-  sessionStorage.setItem("MBG_ROLE", role);
+  sessionStorage.setItem("MBG_ROLE", role.toUpperCase());
   document.getElementById("loginOverlay").style.display = "none";
 }
 window.addEventListener("load", function(){
@@ -422,4 +432,19 @@ if(mbgDB){
     const t = document.getElementById("terima"); if(t) t.value = d.terima || "";
   });
 }
+</script>
+
+<script>
+// === REALTIME LISTENERS (FINAL) ===
+mbgDB.ref("mbg_menu").on("value", snap=>{
+  if(!snap.exists()) return;
+  const data = Object.values(snap.val());
+  localStorage.setItem("MBG_MENU_LIST", JSON.stringify(data));
+  renderMenuList();
+});
+
+mbgDB.ref("mbg_message").on("child_added", snap=>{
+  const d = snap.val();
+  tampilkanPesanRealtime(d);
+});
 </script>
