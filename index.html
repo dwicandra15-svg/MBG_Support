@@ -1,105 +1,686 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8">
-  <title>MBG Message Realtime</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MBG Support</title>
 
-  <!-- Firebase v8 (WAJIB, JANGAN GANTI) -->
-  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
-
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f5f5f5;
-      padding: 10px;
-    }
-    #messageList {
-      background: #fff;
-      border: 1px solid #ddd;
-      padding: 10px;
-      height: 300px;
-      overflow-y: auto;
-      margin-bottom: 10px;
-    }
-    .msg {
-      margin-bottom: 6px;
-      padding-bottom: 4px;
-      border-bottom: 1px dashed #eee;
-    }
-    textarea {
-      width: 100%;
-      height: 60px;
-    }
-    button {
-      margin-top: 5px;
-      padding: 8px 12px;
-    }
-  </style>
+<style>
+body{margin:0;font-family:Arial;background:#f4f6f9}
+header{background:#0d6efd;color:#fff;padding:15px;display:flex;gap:15px;align-items:center}
+header img{width:50px;height:50px;border-radius:10px;background:#fff;object-fit:cover}
+.container{padding:15px}
+.card{background:#fff;padding:15px;border-radius:12px;margin-bottom:15px}
+.menu-item{display:flex;gap:15px;align-items:center;padding:15px;border-bottom:1px solid #eee;cursor:pointer}
+.menu-item:last-child{border:none}
+.menu-item span{font-size:22px}
+.hidden{display:none}
+input,textarea,button,select{width:100%;padding:12px;margin-top:8px;border-radius:8px;border:1px solid #ccc;box-sizing:border-box}
+button{background:#0d6efd;color:#fff;border:none;margin-top:10px;cursor:pointer}
+button:disabled{background:#ccc;cursor:not-allowed}
+.badge{display:inline-block;padding:6px 14px;border-radius:20px;font-size:12px;color:#fff}
+.green{background:#28a745}
+.yellow{background:#ffc107;color:#000}
+.red{background:#dc3545}
+.chat{padding:12px;border-radius:10px;margin-bottom:10px;background:#f8f9fa}
+.chat.penyedia{background:#e3f2fd}
+.chat.sekolah{background:#fff3cd}
+table{width:100%;border-collapse:collapse;margin-top:10px}
+th,td{border:1px solid #ccc;padding:8px;font-size:13px}
+th{background:#f0f0f0}
+.role-badge{display:inline-block;padding:4px 10px;border-radius:15px;font-size:11px;font-weight:bold;margin-left:10px}
+.role-penyedia{background:#28a745;color:#fff}
+.role-sekolah{background:#ffc107;color:#000}
+</style>
 </head>
 
 <body>
 
-<h3>Message MBG (Realtime)</h3>
+<header>
+<img id="logoPreview" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect fill='%230d6efd' width='100' height='100'/%3E%3Ctext x='50' y='55' font-size='40' text-anchor='middle' fill='white' font-family='Arial'%3EMBG%3C/text%3E%3C/svg%3E">
+<div>
+<h3 id="appTitle">MBG Support</h3>
+<small id="appSub">Sistem Kroscek penyaluran Program MBG</small>
+<span id="roleDisplay" class="role-badge"></span>
+</div>
+</header>
 
-<div id="messageList"></div>
+<div class="container">
 
-<textarea id="messageInput" placeholder="Tulis pesan..."></textarea>
-<button onclick="kirimPesan()">Kirim</button>
+<!-- MENU -->
+<div id="home" class="card">
+<div class="menu-item" onclick="openSection('dashboard')"><span>📊</span><b>Dashboard</b></div>
+<div class="menu-item" onclick="openSection('menuMBG')"><span>🍽️</span><b>Menu MBG</b></div>
+<div class="menu-item" onclick="openSection('distribusi')"><span>🚚</span><b>Distribusi & Kroscek</b></div>
+<div class="menu-item" onclick="openSection('message')"><span>💬</span><b>Message</b></div>
+<div class="menu-item" onclick="openSection('riwayat')"><span>📄</span><b>Riwayat Transaksi</b></div>
+<div class="menu-item" onclick="openSection('setting')"><span>⚙️</span><b>Pengaturan</b></div>
+<div class="menu-item" onclick="logout()" style="color:#dc3545"><span>🚪</span><b>Logout</b></div>
+</div>
 
-<script>
-  // ================= FIREBASE CONFIG =================
-  // GANTI dengan config ASLI dari Firebase Console
-  var firebaseConfig = {
-    apiKey: "ISI_API_KEY_ANDA",
-    authDomain: "ISI_AUTH_DOMAIN",
-    projectId: "ISI_PROJECT_ID"
-  };
+<!-- DASHBOARD -->
+<div id="dashboard" class="card hidden">
+<h3>📅 Menu Terakhir</h3>
+<p id="dashMenu">Memuat data...</p>
+<h3>🚚 Status Distribusi Terakhir</h3>
+<p id="dashDistribusi">Memuat data...</p>
+<h3>💬 Pesan Terakhir</h3>
+<p id="dashMsg">Memuat data...</p>
+</div>
 
-  firebase.initializeApp(firebaseConfig);
-  var db = firebase.firestore();
+<!-- MENU MBG -->
+<div id="menuMBG" class="card hidden">
+<h3>🍽️ Input Menu MBG</h3>
+<input type="date" id="menuTanggal">
+<textarea id="menuIsi" rows="4" placeholder="Contoh: Nasi Putih, Ayam Goreng, Sayur Bayam, Buah Jeruk"></textarea>
+<button id="btnSimpanMenu" onclick="simpanMenu()">Simpan Menu</button>
 
-  // simulasi role (di MBG asli sudah ada)
-  if (!localStorage.getItem("role")) {
-    localStorage.setItem("role", "SEKOLAH"); // ganti di HP lain: PENYEDIA
+<hr style="margin:20px 0">
+<h4>📋 Data Menu Tersimpan</h4>
+<div id="listMenuMBG">Memuat data...</div>
+</div>
+
+<!-- DISTRIBUSI -->
+<div id="distribusi" class="card hidden">
+<h3>🚚 Distribusi & Kroscek</h3>
+
+<label>Tanggal Distribusi</label>
+<input type="date" id="distTanggal">
+
+<label>Jumlah Dikirim (Penyedia)</label>
+<input type="number" id="kirim" placeholder="0">
+
+<label>Jumlah Diterima (Sekolah)</label>
+<input type="number" id="terima" placeholder="0">
+
+<label>Catatan</label>
+<textarea id="catatan" rows="3" placeholder="Tambahkan catatan jika ada..."></textarea>
+
+<p>Status Penyedia: <span id="stPenyedia" class="badge red">Belum Kirim</span></p>
+<p>Status Sekolah: <span id="stSekolah" class="badge red">Belum Terima</span></p>
+
+<button id="btnKonfirmasiKirim" onclick="konfirmasiKirim()">Konfirmasi Kirim (Penyedia)</button>
+<button id="btnKonfirmasiTerima" onclick="konfirmasiTerima()">Konfirmasi Terima (Sekolah)</button>
+
+<hr style="margin:20px 0">
+<h4>📋 Riwayat Distribusi</h4>
+<div id="listDistribusi">Memuat data...</div>
+</div>
+
+<!-- MESSAGE -->
+<div id="message" class="card hidden">
+<h3>💬 Message Center</h3>
+<div id="chatBox" style="max-height:400px;overflow-y:auto;margin-bottom:15px;padding:10px;background:#f8f9fa;border-radius:8px"></div>
+<textarea id="msgInput" rows="3" placeholder="Ketik pesan Anda..."></textarea>
+<button onclick="kirimPesan()">Kirim Pesan</button>
+</div>
+
+<!-- RIWAYAT & LAPORAN -->
+<div id="riwayat" class="card hidden">
+<h3>📄 Riwayat Transaksi & Laporan</h3>
+
+<button onclick="tampilkanLaporan()">Refresh Laporan</button>
+<button onclick="cetakLaporan()">Cetak / Simpan PDF</button>
+
+<hr style="margin:20px 0">
+
+<div id="areaLaporan">
+
+<h4>Menu MBG</h4>
+<table id="lapMenuTable">
+<tr><th>Tanggal</th><th>Menu</th><th>Dibuat Oleh</th></tr>
+</table>
+
+<h4>Distribusi MBG</h4>
+<table id="lapDistribusiTable">
+<tr><th>Tanggal</th><th>Dikirim</th><th>Diterima</th><th>Selisih</th><th>Status</th></tr>
+</table>
+
+</div>
+</div>
+
+<!-- SETTING -->
+<div id="setting" class="card hidden">
+<h3>⚙️ Pengaturan</h3>
+<label>Judul Aplikasi</label>
+<input id="inputJudul" placeholder="Judul Aplikasi" value="MBG Support">
+<label>Subjudul</label>
+<input id="inputSub" placeholder="Subjudul" value="Sistem Kroscek penyaluran Program MBG">
+<label>Logo Aplikasi</label>
+<input type="file" accept="image/*" onchange="simpanLogo(this)">
+<button onclick="simpanPengaturan()">Simpan Pengaturan</button>
+</div>
+
+</div>
+
+<!-- WATERMARK -->
+<div style="text-align:center;font-size:12px;color:#888;padding:20px 0">
+  Created & Developed by D.D Candra
+</div>
+
+<!-- LOGIN OVERLAY -->
+<div id="loginOverlay" style="position:fixed;top:0;left:0;right:0;bottom:0;background:#f4f6f9;z-index:9999;display:flex;align-items:center;justify-content:center;">
+  <div style="background:#fff;padding:30px;border-radius:12px;width:320px;box-shadow:0 4px 20px rgba(0,0,0,0.2);">
+    <h3 style="margin-top:0;text-align:center;color:#0d6efd">🔐 Login MBG</h3>
+    <label style="font-weight:bold;margin-top:10px;display:block">Role</label>
+    <select id="mbgRole" style="width:100%;padding:12px;margin-top:5px">
+      <option value="">-- Pilih Role --</option>
+      <option value="PENYEDIA">Penyedia MBG</option>
+      <option value="SEKOLAH">Sekolah / Penerima</option>
+    </select>
+    <label style="font-weight:bold;margin-top:15px;display:block">Password</label>
+    <input type="password" id="mbgPassword" placeholder="Masukkan password" style="width:100%;padding:12px;margin-top:5px">
+    <button onclick="loginMBG()" style="width:100%;margin-top:20px;padding:14px;background:#0d6efd;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:16px;font-weight:bold">Masuk</button>
+  </div>
+</div>
+
+<!-- FIREBASE SCRIPTS -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getFirestore, collection, addDoc, setDoc, updateDoc, doc, serverTimestamp, onSnapshot, query, orderBy, deleteDoc, getDoc } 
+from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+// FIREBASE CONFIG - GANTI DENGAN CONFIG ANDA
+const firebaseConfig = {
+  apiKey: "AIzaSyBm_KN0xB_example",
+  authDomain: "mbg-support-assistant.firebaseapp.com",
+  projectId: "mbg-support-assistant",
+  storageBucket: "mbg-support-assistant.appspot.com",
+  messagingSenderId: "123456789",
+  appId: "1:123456789:web:example"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+window.db = db;
+
+// GLOBAL FUNCTIONS
+window.getRole = function(){ return sessionStorage.getItem("MBG_ROLE"); }
+
+window.openSection = function(id){
+  document.querySelectorAll('.card').forEach(c=>{if(c.id!=='home')c.classList.add('hidden')});
+  document.getElementById(id).classList.remove('hidden');
+  
+  if(id === 'dashboard') loadDashboard();
+  if(id === 'menuMBG') renderMenuList();
+  if(id === 'distribusi') renderDistribusiList();
+  if(id === 'riwayat') tampilkanLaporan();
+}
+
+window.logout = function(){
+  if(confirm('Yakin ingin keluar?')){
+    sessionStorage.removeItem('MBG_ROLE');
+    location.reload();
   }
+}
 
-  function kirimPesan() {
-    var input = document.getElementById("messageInput");
-    var text = input.value.trim();
-    if (!text) {
-      alert("Pesan kosong");
+// LOGIN SYSTEM
+window.loginMBG = function(){
+  const role = document.getElementById("mbgRole").value;
+  const pass = document.getElementById("mbgPassword").value;
+  if(!role){ alert("Pilih role terlebih dahulu"); return; }
+  if(pass !== "56789"){ alert("Password salah"); return; }
+  sessionStorage.setItem("MBG_ROLE", role.toUpperCase());
+  document.getElementById("loginOverlay").style.display = "none";
+  initApp();
+}
+
+// INIT APP
+function initApp(){
+  const role = getRole();
+  const roleDisplay = document.getElementById("roleDisplay");
+  roleDisplay.innerText = role;
+  roleDisplay.className = `role-badge role-${role.toLowerCase()}`;
+  
+  // Apply role-based permissions
+  applyRolePermissions();
+  
+  // Load settings
+  loadSettings();
+  
+  // Start listeners
+  listenToMenu();
+  listenToDistribusi();
+  listenToMessages();
+}
+
+function applyRolePermissions(){
+  const role = getRole();
+  
+  // Menu MBG permissions
+  const menuInputs = document.querySelectorAll("#menuMBG input, #menuMBG textarea");
+  const btnSimpanMenu = document.getElementById("btnSimpanMenu");
+  
+  if(role === "SEKOLAH"){
+    menuInputs.forEach(el => el.disabled = true);
+    btnSimpanMenu.disabled = true;
+    btnSimpanMenu.innerText = "Hanya Penyedia yang Bisa Input Menu";
+  }
+  
+  // Distribusi permissions
+  const kirimInput = document.getElementById("kirim");
+  const terimaInput = document.getElementById("terima");
+  const btnKonfirmasiKirim = document.getElementById("btnKonfirmasiKirim");
+  const btnKonfirmasiTerima = document.getElementById("btnKonfirmasiTerima");
+  
+  if(role === "PENYEDIA"){
+    terimaInput.disabled = true;
+    btnKonfirmasiTerima.disabled = true;
+    btnKonfirmasiTerima.style.display = "none";
+  } else {
+    kirimInput.disabled = true;
+    btnKonfirmasiKirim.disabled = true;
+    btnKonfirmasiKirim.style.display = "none";
+  }
+}
+
+// MENU MBG FUNCTIONS
+window.simpanMenu = async function(){
+  const role = getRole();
+  if(role !== "PENYEDIA"){ 
+    alert("Akses ditolak. Hanya Penyedia yang boleh input menu."); 
+    return; 
+  }
+  
+  const tanggal = document.getElementById("menuTanggal").value;
+  const menu = document.getElementById("menuIsi").value.trim();
+  
+  if(!tanggal || !menu){ 
+    alert("Tanggal dan menu wajib diisi"); 
+    return; 
+  }
+  
+  try {
+    await addDoc(collection(db, "menu_mbg"), {
+      tanggal: tanggal,
+      menu: menu,
+      createdBy: "PENYEDIA",
+      createdAt: serverTimestamp()
+    });
+    
+    document.getElementById("menuIsi").value = "";
+    document.getElementById("menuTanggal").value = "";
+    alert("Menu berhasil disimpan!");
+  } catch(err) {
+    console.error(err);
+    alert("Gagal menyimpan menu: " + err.message);
+  }
+}
+
+function listenToMenu(){
+  const q = query(collection(db, "menu_mbg"), orderBy("createdAt", "desc"));
+  onSnapshot(q, (snapshot) => {
+    window.menuData = [];
+    snapshot.forEach((doc) => {
+      window.menuData.push({ id: doc.id, ...doc.data() });
+    });
+    renderMenuList();
+  });
+}
+
+window.renderMenuList = function(){
+  const container = document.getElementById("listMenuMBG");
+  if(!container || !window.menuData) return;
+  
+  if(window.menuData.length === 0){
+    container.innerHTML = "<p style='color:#888'>Belum ada menu tersimpan</p>";
+    return;
+  }
+  
+  const role = getRole();
+  let html = "<table style='width:100%;border-collapse:collapse'>";
+  html += "<tr><th>Tanggal</th><th>Menu</th>";
+  if(role === "PENYEDIA") html += "<th>Aksi</th>";
+  html += "</tr>";
+  
+  window.menuData.forEach((item) => {
+    html += `<tr>
+      <td>${item.tanggal || "-"}</td>
+      <td>${item.menu}</td>`;
+    if(role === "PENYEDIA"){
+      html += `<td style='white-space:nowrap'>
+        <button onclick="editMenu('${item.id}')" style='padding:6px 12px;margin:2px;font-size:12px'>✏️ Edit</button>
+        <button onclick="hapusMenu('${item.id}')" style='padding:6px 12px;margin:2px;font-size:12px;background:#dc3545'>🗑️ Hapus</button>
+      </td>`;
+    }
+    html += "</tr>";
+  });
+  
+  html += "</table>";
+  container.innerHTML = html;
+}
+
+window.editMenu = async function(menuId){
+  const role = getRole();
+  if(role !== "PENYEDIA") return;
+  
+  const item = window.menuData.find(m => m.id === menuId);
+  if(!item) return;
+  
+  document.getElementById("menuTanggal").value = item.tanggal || "";
+  document.getElementById("menuIsi").value = item.menu || "";
+  
+  const newMenu = prompt("Edit menu:", item.menu);
+  if(!newMenu) return;
+  
+  try {
+    await updateDoc(doc(db, "menu_mbg", menuId), {
+      menu: newMenu,
+      updatedAt: serverTimestamp()
+    });
+    alert("Menu berhasil diupdate!");
+  } catch(err) {
+    alert("Gagal update menu: " + err.message);
+  }
+}
+
+window.hapusMenu = async function(menuId){
+  const role = getRole();
+  if(role !== "PENYEDIA") return;
+  
+  if(!confirm("Yakin ingin menghapus menu ini?")) return;
+  
+  try {
+    await deleteDoc(doc(db, "menu_mbg", menuId));
+    alert("Menu berhasil dihapus!");
+  } catch(err) {
+    alert("Gagal hapus menu: " + err.message);
+  }
+}
+
+// DISTRIBUSI FUNCTIONS
+window.konfirmasiKirim = async function(){
+  const role = getRole();
+  if(role !== "PENYEDIA"){ 
+    alert("Hanya Penyedia yang bisa konfirmasi kirim"); 
+    return; 
+  }
+  
+  const tanggal = document.getElementById("distTanggal").value;
+  const jumlah = parseInt(document.getElementById("kirim").value);
+  const catatan = document.getElementById("catatan").value;
+  
+  if(!tanggal || !jumlah){ 
+    alert("Tanggal dan jumlah wajib diisi"); 
+    return; 
+  }
+  
+  try {
+    const docRef = doc(db, "distribusi", tanggal);
+    await setDoc(docRef, {
+      tanggal: tanggal,
+      dikirim: jumlah,
+      statusPenyedia: "DIKIRIM",
+      catatanPenyedia: catatan,
+      updatedByPenyedia: serverTimestamp()
+    }, { merge: true });
+    
+    alert("Konfirmasi kirim berhasil!");
+    document.getElementById("stPenyedia").className = "badge green";
+    document.getElementById("stPenyedia").innerText = "Sudah Kirim";
+  } catch(err) {
+    alert("Gagal konfirmasi: " + err.message);
+  }
+}
+
+window.konfirmasiTerima = async function(){
+  const role = getRole();
+  if(role !== "SEKOLAH"){ 
+    alert("Hanya Sekolah yang bisa konfirmasi terima"); 
+    return; 
+  }
+  
+  const tanggal = document.getElementById("distTanggal").value;
+  const jumlah = parseInt(document.getElementById("terima").value);
+  const catatan = document.getElementById("catatan").value;
+  
+  if(!tanggal || !jumlah){ 
+    alert("Tanggal dan jumlah wajib diisi"); 
+    return; 
+  }
+  
+  try {
+    const docRef = doc(db, "distribusi", tanggal);
+    const docSnap = await getDoc(docRef);
+    
+    if(!docSnap.exists()){
+      alert("Belum ada data kiriman dari Penyedia untuk tanggal ini");
       return;
     }
+    
+    await updateDoc(docRef, {
+      diterima: jumlah,
+      statusSekolah: "DITERIMA",
+      catatanSekolah: catatan,
+      updatedBySekolah: serverTimestamp()
+    });
+    
+    alert("Konfirmasi terima berhasil!");
+    document.getElementById("stSekolah").className = "badge green";
+    document.getElementById("stSekolah").innerText = "Sudah Terima";
+  } catch(err) {
+    alert("Gagal konfirmasi: " + err.message);
+  }
+}
 
-    db.collection("messages").add({
-      text: text,
-      role: localStorage.getItem("role"),
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    }).then(function () {
-      input.value = "";
-    }).catch(function (err) {
-      console.error(err);
-      alert("Gagal kirim pesan");
+function listenToDistribusi(){
+  onSnapshot(collection(db, "distribusi"), (snapshot) => {
+    window.distribusiData = [];
+    snapshot.forEach((doc) => {
+      window.distribusiData.push({ id: doc.id, ...doc.data() });
+    });
+    renderDistribusiList();
+  });
+}
+
+window.renderDistribusiList = function(){
+  const container = document.getElementById("listDistribusi");
+  if(!container || !window.distribusiData) return;
+  
+  if(window.distribusiData.length === 0){
+    container.innerHTML = "<p style='color:#888'>Belum ada data distribusi</p>";
+    return;
+  }
+  
+  let html = "<table style='width:100%;border-collapse:collapse'>";
+  html += "<tr><th>Tanggal</th><th>Dikirim</th><th>Diterima</th><th>Selisih</th><th>Status</th></tr>";
+  
+  window.distribusiData.forEach((item) => {
+    const dikirim = item.dikirim || 0;
+    const diterima = item.diterima || 0;
+    const selisih = dikirim - diterima;
+    const status = (item.statusPenyedia === "DIKIRIM" && item.statusSekolah === "DITERIMA") ? "SELESAI" : "PROSES";
+    
+    html += `<tr>
+      <td>${item.tanggal || "-"}</td>
+      <td>${dikirim}</td>
+      <td>${diterima}</td>
+      <td style='color:${selisih !== 0 ? "#dc3545" : "#28a745"};font-weight:bold'>${selisih}</td>
+      <td><span class='badge ${status === "SELESAI" ? "green" : "yellow"}'>${status}</span></td>
+    </tr>`;
+  });
+  
+  html += "</table>";
+  container.innerHTML = html;
+}
+
+// MESSAGE FUNCTIONS
+window.kirimPesan = async function(){
+  const teks = document.getElementById("msgInput").value.trim();
+  if(!teks) return;
+  
+  const role = getRole();
+  
+  try {
+    await addDoc(collection(db, "messages"), {
+      from: role,
+      text: teks,
+      createdAt: serverTimestamp()
+    });
+    
+    document.getElementById("msgInput").value = "";
+  } catch(err) {
+    alert("Gagal kirim pesan: " + err.message);
+  }
+}
+
+function listenToMessages(){
+  const q = query(collection(db, "messages"), orderBy("createdAt", "asc"));
+  onSnapshot(q, (snapshot) => {
+    const chatBox = document.getElementById("chatBox");
+    if(!chatBox) return;
+    
+    chatBox.innerHTML = "";
+    snapshot.forEach((doc) => {
+      const data = doc.data();
+      const div = document.createElement("div");
+      div.className = `chat ${data.from.toLowerCase()}`;
+      div.innerHTML = `<b>${data.from}:</b> ${data.text}`;
+      chatBox.appendChild(div);
+    });
+    
+    chatBox.scrollTop = chatBox.scrollHeight;
+  });
+}
+
+// DASHBOARD
+function loadDashboard(){
+  // Load latest menu
+  if(window.menuData && window.menuData.length > 0){
+    const latest = window.menuData[0];
+    document.getElementById("dashMenu").innerHTML = `<b>${latest.tanggal}</b>: ${latest.menu}`;
+  }
+  
+  // Load latest distribusi
+  if(window.distribusiData && window.distribusiData.length > 0){
+    const latest = window.distribusiData[window.distribusiData.length - 1];
+    const status = (latest.statusPenyedia === "DIKIRIM" && latest.statusSekolah === "DITERIMA") ? "✅ SELESAI" : "⏳ PROSES";
+    document.getElementById("dashDistribusi").innerHTML = `<b>${latest.tanggal}</b>: Dikirim ${latest.dikirim || 0}, Diterima ${latest.diterima || 0} - ${status}`;
+  }
+  
+  document.getElementById("dashMsg").innerText = "Lihat di menu Message";
+}
+
+// LAPORAN
+window.tampilkanLaporan = function(){
+  // Menu table
+  const lapMenuTable = document.getElementById("lapMenuTable");
+  lapMenuTable.innerHTML = "<tr><th>Tanggal</th><th>Menu</th><th>Dibuat Oleh</th></tr>";
+  if(window.menuData){
+    window.menuData.forEach(m => {
+      lapMenuTable.innerHTML += `<tr><td>${m.tanggal}</td><td>${m.menu}</td><td>${m.createdBy}</td></tr>`;
     });
   }
-
-  // ================= REALTIME LISTENER =================
-  db.collection("messages")
-    .orderBy("createdAt", "asc")
-    .onSnapshot(function (snapshot) {
-      var box = document.getElementById("messageList");
-      box.innerHTML = "";
-      snapshot.forEach(function (doc) {
-        var d = doc.data();
-        var div = document.createElement("div");
-        div.className = "msg";
-        div.innerHTML = "<b>" + d.role + "</b>: " + d.text;
-        box.appendChild(div);
-      });
-      box.scrollTop = box.scrollHeight;
+  
+  // Distribusi table
+  const lapDistribusiTable = document.getElementById("lapDistribusiTable");
+  lapDistribusiTable.innerHTML = "<tr><th>Tanggal</th><th>Dikirim</th><th>Diterima</th><th>Selisih</th><th>Status</th></tr>";
+  if(window.distribusiData){
+    window.distribusiData.forEach(d => {
+      const selisih = (d.dikirim || 0) - (d.diterima || 0);
+      const status = (d.statusPenyedia === "DIKIRIM" && d.statusSekolah === "DITERIMA") ? "SELESAI" : "PROSES";
+      lapDistribusiTable.innerHTML += `<tr><td>${d.tanggal}</td><td>${d.dikirim || 0}</td><td>${d.diterima || 0}</td><td>${selisih}</td><td>${status}</td></tr>`;
     });
+  }
+}
+
+window.cetakLaporan = function(){
+  const logo = localStorage.getItem("MBG_LOGO") || "";
+  const title = localStorage.getItem("MBG_TITLE") || "MBG Support";
+  const sub = localStorage.getItem("MBG_SUB") || "Sistem Kroscek penyaluran Program MBG";
+  
+  const isiMenu = document.getElementById("lapMenuTable").outerHTML;
+  const isiDist = document.getElementById("lapDistribusiTable").outerHTML;
+  
+  const w = window.open("", "", "width=900,height=650");
+  w.document.write(`
+    <html>
+    <head>
+      <title>Laporan MBG</title>
+      <style>
+        body{font-family:Arial;margin:30px}
+        .kop{text-align:center}
+        .kop img{width:80px;margin-bottom:10px}
+        .kop h2{margin:0;font-size:18px}
+        .kop p{margin:4px 0;font-size:13px}
+        hr{border:1px solid #000;margin:15px 0}
+        table{width:100%;border-collapse:collapse;margin-top:10px}
+        th,td{border:1px solid #000;padding:8px;font-size:13px;text-align:center}
+        th{background:#f0f0f0}
+        h3{margin-top:25px}
+      </style>
+    </head>
+    <body>
+      <div class="kop">
+        ${logo ? `<img src="${logo}">` : ""}
+        <h2>${title}</h2>
+        <p>${sub}</p>
+      </div>
+      <hr>
+      <h3>Menu MBG</h3>
+      ${isiMenu}
+      <h3>Distribusi MBG</h3>
+      ${isiDist}
+    </body>
+    </html>
+  `);
+  w.document.close();
+  w.print();
+}
+
+// SETTINGS
+window.simpanPengaturan = function(){
+  const judul = document.getElementById("inputJudul").value;
+  const sub = document.getElementById("inputSub").value;
+  
+  if(judul) {
+    localStorage.setItem("MBG_TITLE", judul);
+    document.getElementById("appTitle").innerText = judul;
+  }
+  
+  if(sub) {
+    localStorage.setItem("MBG_SUB", sub);
+    document.getElementById("appSub").innerText = sub;
+  }
+  
+  alert("Pengaturan berhasil disimpan!");
+}
+
+window.simpanLogo = function(input){
+  const reader = new FileReader();
+  reader.onload = function(e){
+    localStorage.setItem("MBG_LOGO", e.target.result);
+    document.getElementById("logoPreview").src = e.target.result;
+    alert("Logo berhasil diupload!");
+  };
+  reader.readAsDataURL(input.files[0]);
+}
+
+function loadSettings(){
+  const logo = localStorage.getItem("MBG_LOGO");
+  const title = localStorage.getItem("MBG_TITLE");
+  const sub = localStorage.getItem("MBG_SUB");
+  
+  if(logo) document.getElementById("logoPreview").src = logo;
+  if(title) {
+    document.getElementById("appTitle").innerText = title;
+    document.getElementById("inputJudul").value = title;
+  }
+  if(sub) {
+    document.getElementById("appSub").innerText = sub;
+    document.getElementById("inputSub").value = sub;
+  }
+}
+
+// CHECK LOGIN ON LOAD
+window.addEventListener("load", function(){
+  const role = sessionStorage.getItem("MBG_ROLE");
+  if(role){
+    document.getElementById("loginOverlay").style.display = "none";
+    initApp();
+  }
+});
+
 </script>
 
 </body>
