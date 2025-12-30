@@ -492,3 +492,44 @@ onSnapshot(q, (snap) => {
   });
 });
 </script>
+
+<!-- =========================
+     MESSAGE REALTIME (FINAL SAFE MODE)
+     ========================= -->
+<script>
+const db = firebase.firestore();
+
+function kirimPesan(){
+  const teks = (window.msgInput && msgInput.value || "").trim();
+  if(!teks){
+    alert("Pesan kosong");
+    return;
+  }
+
+  const role = (sessionStorage.getItem("MBG_ROLE") || "SEKOLAH").toUpperCase();
+
+  db.collection("messages").add({
+    from: role,
+    text: teks,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  }).then(()=>{
+    msgInput.value = "";
+  }).catch((err)=>{
+    console.error("Gagal kirim pesan:", err);
+    alert("Gagal mengirim pesan");
+  });
+}
+
+db.collection("messages")
+  .orderBy("createdAt")
+  .onSnapshot((snapshot)=>{
+    snapshot.docChanges().forEach((change)=>{
+      if(change.type === "added"){
+        const data = change.doc.data();
+        if(typeof tampilkanPesanRealtime === "function"){
+          tampilkanPesanRealtime(data);
+        }
+      }
+    });
+  });
+</script>
