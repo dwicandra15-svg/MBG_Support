@@ -22,15 +22,23 @@ button:disabled{background:#ccc;cursor:not-allowed}
 .green{background:#28a745}
 .yellow{background:#ffc107;color:#000}
 .red{background:#dc3545}
-.chat{padding:12px;border-radius:10px;margin-bottom:10px;background:#f8f9fa}
-.chat.penyedia{background:#e3f2fd}
-.chat.sekolah{background:#fff3cd}
+.chat{padding:12px;border-radius:10px;margin-bottom:10px;background:#f8f9fa;box-shadow:0 1px 3px rgba(0,0,0,0.1)}
+.chat.penyedia{background:#e3f2fd;border-left:4px solid #0d6efd}
+.chat.sekolah{background:#fff3cd;border-left:4px solid #ffc107}
+.chat-header{font-weight:bold;margin-bottom:5px;font-size:13px;display:flex;justify-content:space-between;align-items:center}
+.chat-sender{color:#0d6efd}
+.chat-date{font-size:11px;color:#666;font-weight:normal}
+.chat-text{margin-bottom:8px;line-height:1.5}
+.chat-time{font-size:11px;color:#666;margin-top:5px;text-align:right}
 table{width:100%;border-collapse:collapse;margin-top:10px}
 th,td{border:1px solid #ccc;padding:8px;font-size:13px}
 th{background:#f0f0f0}
 .role-badge{display:inline-block;padding:4px 10px;border-radius:15px;font-size:11px;font-weight:bold;margin-left:10px}
 .role-penyedia{background:#28a745;color:#fff}
 .role-sekolah{background:#ffc107;color:#000}
+.btn-small{padding:6px 12px;margin:2px;font-size:12px}
+.btn-danger{background:#dc3545}
+.btn-warning{background:#ffc107;color:#000}
 </style>
 </head>
 
@@ -110,9 +118,20 @@ th{background:#f0f0f0}
 <!-- MESSAGE -->
 <div id="message" class="card hidden">
 <h3>💬 Message Center</h3>
+
+<div style="display:flex;gap:10px;margin-bottom:15px;align-items:center;flex-wrap:wrap">
+<label style="font-weight:bold;margin:0">Filter:</label>
+<select id="filterRole" onchange="filterMessages()" style="width:auto;padding:8px;margin:0">
+<option value="ALL">Semua Pesan</option>
+<option value="PENYEDIA">Dari Penyedia</option>
+<option value="SEKOLAH">Dari Sekolah</option>
+</select>
+<button onclick="clearMessages()" style="width:auto;padding:8px 15px;background:#dc3545;margin:0">🗑️ Hapus Semua</button>
+</div>
+
 <div id="chatBox" style="max-height:400px;overflow-y:auto;margin-bottom:15px;padding:10px;background:#f8f9fa;border-radius:8px"></div>
 <textarea id="msgInput" rows="3" placeholder="Ketik pesan Anda..."></textarea>
-<button onclick="kirimPesan()">Kirim Pesan</button>
+<button onclick="kirimPesan()" style="margin-top:10px">📤 Kirim Pesan</button>
 </div>
 
 <!-- RIWAYAT & LAPORAN -->
@@ -169,12 +188,37 @@ th{background:#f0f0f0}
       <option value="SEKOLAH">Sekolah / Penerima</option>
     </select>
     <label style="font-weight:bold;margin-top:15px;display:block">Password</label>
-    <input type="password" id="mbgPassword" placeholder="Masukkan password" style="width:100%;padding:12px;margin-top:5px">
+    <input type="password" id="mbgPassword" placeholder="Masukkan password" style="width:100%;padding:12px;margin-top:5px" onkeypress="if(event.key==='Enter')loginMBG()">
     <button onclick="loginMBG()" style="width:100%;margin-top:20px;padding:14px;background:#0d6efd;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:16px;font-weight:bold">Masuk</button>
   </div>
 </div>
 
 <!-- FIREBASE SCRIPTS -->
+<script>
+// LOGIN FUNCTION - MUST BE OUTSIDE MODULE SCOPE
+window.loginMBG = function(){
+  const role = document.getElementById("mbgRole").value;
+  const pass = document.getElementById("mbgPassword").value;
+  if(!role){ alert("Pilih role terlebih dahulu"); return; }
+  if(pass !== "56789"){ alert("Password salah"); return; }
+  sessionStorage.setItem("MBG_ROLE", role.toUpperCase());
+  document.getElementById("loginOverlay").style.display = "none";
+  
+  // Wait for Firebase to be ready
+  setTimeout(() => {
+    if(window.initApp) window.initApp();
+  }, 500);
+}
+
+// Check if already logged in
+window.addEventListener("load", function(){
+  const role = sessionStorage.getItem("MBG_ROLE");
+  if(role){
+    document.getElementById("loginOverlay").style.display = "none";
+  }
+});
+</script>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getFirestore, collection, addDoc, setDoc, updateDoc, doc, serverTimestamp, onSnapshot, query, orderBy, deleteDoc, getDoc } 
@@ -194,17 +238,24 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 window.db = db;
 
+// Store Firebase modules globally
+window.firebaseModules = {
+  collection, addDoc, setDoc, updateDoc, doc, serverTimestamp,
+  onSnapshot, query, orderBy, deleteDoc, getDoc
+};
+
 // GLOBAL FUNCTIONS
 window.getRole = function(){ return sessionStorage.getItem("MBG_ROLE"); }
 
 window.openSection = function(id){
   document.querySelectorAll('.card').forEach(c=>{if(c.id!=='home')c.classList.add('hidden')});
-  document.getElementById(id).classList.remove('hidden');
+  const section = document.getElementById(id);
+  if(section) section.classList.remove('hidden');
   
-  if(id === 'dashboard') loadDashboard();
-  if(id === 'menuMBG') renderMenuList();
-  if(id === 'distribusi') renderDistribusiList();
-  if(id === 'riwayat') tampilkanLaporan();
+  if(id === 'dashboard' && window.loadDashboard) window.loadDashboard();
+  if(id === 'menuMBG' && window.renderMenuList) window.renderMenuList();
+  if(id === 'distribusi' && window.renderDistribusiList) window.renderDistribusiList();
+  if(id === 'riwayat' && window.tampilkanLaporan) window.tampilkanLaporan();
 }
 
 window.logout = function(){
@@ -214,40 +265,27 @@ window.logout = function(){
   }
 }
 
-// LOGIN SYSTEM
-window.loginMBG = function(){
-  const role = document.getElementById("mbgRole").value;
-  const pass = document.getElementById("mbgPassword").value;
-  if(!role){ alert("Pilih role terlebih dahulu"); return; }
-  if(pass !== "56789"){ alert("Password salah"); return; }
-  sessionStorage.setItem("MBG_ROLE", role.toUpperCase());
-  document.getElementById("loginOverlay").style.display = "none";
-  initApp();
-}
+// LOGIN SYSTEM - Moved to global scope above
 
 // INIT APP
-function initApp(){
-  const role = getRole();
+window.initApp = function(){
+  const role = window.getRole();
   const roleDisplay = document.getElementById("roleDisplay");
-  roleDisplay.innerText = role;
-  roleDisplay.className = `role-badge role-${role.toLowerCase()}`;
+  if(roleDisplay){
+    roleDisplay.innerText = role;
+    roleDisplay.className = `role-badge role-${role.toLowerCase()}`;
+  }
   
-  // Apply role-based permissions
   applyRolePermissions();
-  
-  // Load settings
   loadSettings();
-  
-  // Start listeners
   listenToMenu();
   listenToDistribusi();
   listenToMessages();
 }
 
 function applyRolePermissions(){
-  const role = getRole();
+  const role = window.getRole();
   
-  // Menu MBG permissions
   const menuInputs = document.querySelectorAll("#menuMBG input, #menuMBG textarea");
   const btnSimpanMenu = document.getElementById("btnSimpanMenu");
   
@@ -257,26 +295,29 @@ function applyRolePermissions(){
     btnSimpanMenu.innerText = "Hanya Penyedia yang Bisa Input Menu";
   }
   
-  // Distribusi permissions
   const kirimInput = document.getElementById("kirim");
   const terimaInput = document.getElementById("terima");
   const btnKonfirmasiKirim = document.getElementById("btnKonfirmasiKirim");
   const btnKonfirmasiTerima = document.getElementById("btnKonfirmasiTerima");
   
   if(role === "PENYEDIA"){
-    terimaInput.disabled = true;
-    btnKonfirmasiTerima.disabled = true;
-    btnKonfirmasiTerima.style.display = "none";
+    if(terimaInput) terimaInput.disabled = true;
+    if(btnKonfirmasiTerima) {
+      btnKonfirmasiTerima.disabled = true;
+      btnKonfirmasiTerima.style.display = "none";
+    }
   } else {
-    kirimInput.disabled = true;
-    btnKonfirmasiKirim.disabled = true;
-    btnKonfirmasiKirim.style.display = "none";
+    if(kirimInput) kirimInput.disabled = true;
+    if(btnKonfirmasiKirim) {
+      btnKonfirmasiKirim.disabled = true;
+      btnKonfirmasiKirim.style.display = "none";
+    }
   }
 }
 
 // MENU MBG FUNCTIONS
 window.simpanMenu = async function(){
-  const role = getRole();
+  const role = window.getRole();
   if(role !== "PENYEDIA"){ 
     alert("Akses ditolak. Hanya Penyedia yang boleh input menu."); 
     return; 
@@ -291,7 +332,8 @@ window.simpanMenu = async function(){
   }
   
   try {
-    await addDoc(collection(db, "menu_mbg"), {
+    const { addDoc, collection, serverTimestamp } = window.firebaseModules;
+    await addDoc(collection(window.db, "menu_mbg"), {
       tanggal: tanggal,
       menu: menu,
       createdBy: "PENYEDIA",
@@ -308,7 +350,8 @@ window.simpanMenu = async function(){
 }
 
 function listenToMenu(){
-  const q = query(collection(db, "menu_mbg"), orderBy("createdAt", "desc"));
+  const { collection, query, orderBy, onSnapshot } = window.firebaseModules;
+  const q = query(collection(window.db, "menu_mbg"), orderBy("createdAt", "desc"));
   onSnapshot(q, (snapshot) => {
     window.menuData = [];
     snapshot.forEach((doc) => {
@@ -327,7 +370,7 @@ window.renderMenuList = function(){
     return;
   }
   
-  const role = getRole();
+  const role = window.getRole();
   let html = "<table style='width:100%;border-collapse:collapse'>";
   html += "<tr><th>Tanggal</th><th>Menu</th>";
   if(role === "PENYEDIA") html += "<th>Aksi</th>";
@@ -339,8 +382,8 @@ window.renderMenuList = function(){
       <td>${item.menu}</td>`;
     if(role === "PENYEDIA"){
       html += `<td style='white-space:nowrap'>
-        <button onclick="editMenu('${item.id}')" style='padding:6px 12px;margin:2px;font-size:12px'>✏️ Edit</button>
-        <button onclick="hapusMenu('${item.id}')" style='padding:6px 12px;margin:2px;font-size:12px;background:#dc3545'>🗑️ Hapus</button>
+        <button onclick="editMenu('${item.id}')" class='btn-small'>✏️ Edit</button>
+        <button onclick="hapusMenu('${item.id}')" class='btn-small btn-danger'>🗑️ Hapus</button>
       </td>`;
     }
     html += "</tr>";
@@ -351,20 +394,18 @@ window.renderMenuList = function(){
 }
 
 window.editMenu = async function(menuId){
-  const role = getRole();
+  const role = window.getRole();
   if(role !== "PENYEDIA") return;
   
   const item = window.menuData.find(m => m.id === menuId);
   if(!item) return;
   
-  document.getElementById("menuTanggal").value = item.tanggal || "";
-  document.getElementById("menuIsi").value = item.menu || "";
-  
   const newMenu = prompt("Edit menu:", item.menu);
   if(!newMenu) return;
   
   try {
-    await updateDoc(doc(db, "menu_mbg", menuId), {
+    const { updateDoc, doc, serverTimestamp } = window.firebaseModules;
+    await updateDoc(doc(window.db, "menu_mbg", menuId), {
       menu: newMenu,
       updatedAt: serverTimestamp()
     });
@@ -375,13 +416,14 @@ window.editMenu = async function(menuId){
 }
 
 window.hapusMenu = async function(menuId){
-  const role = getRole();
+  const role = window.getRole();
   if(role !== "PENYEDIA") return;
   
   if(!confirm("Yakin ingin menghapus menu ini?")) return;
   
   try {
-    await deleteDoc(doc(db, "menu_mbg", menuId));
+    const { deleteDoc, doc } = window.firebaseModules;
+    await deleteDoc(doc(window.db, "menu_mbg", menuId));
     alert("Menu berhasil dihapus!");
   } catch(err) {
     alert("Gagal hapus menu: " + err.message);
@@ -390,7 +432,7 @@ window.hapusMenu = async function(menuId){
 
 // DISTRIBUSI FUNCTIONS
 window.konfirmasiKirim = async function(){
-  const role = getRole();
+  const role = window.getRole();
   if(role !== "PENYEDIA"){ 
     alert("Hanya Penyedia yang bisa konfirmasi kirim"); 
     return; 
@@ -406,7 +448,8 @@ window.konfirmasiKirim = async function(){
   }
   
   try {
-    const docRef = doc(db, "distribusi", tanggal);
+    const { setDoc, doc, serverTimestamp } = window.firebaseModules;
+    const docRef = doc(window.db, "distribusi", tanggal);
     await setDoc(docRef, {
       tanggal: tanggal,
       dikirim: jumlah,
@@ -418,13 +461,17 @@ window.konfirmasiKirim = async function(){
     alert("Konfirmasi kirim berhasil!");
     document.getElementById("stPenyedia").className = "badge green";
     document.getElementById("stPenyedia").innerText = "Sudah Kirim";
+    
+    document.getElementById("distTanggal").value = "";
+    document.getElementById("kirim").value = "";
+    document.getElementById("catatan").value = "";
   } catch(err) {
     alert("Gagal konfirmasi: " + err.message);
   }
 }
 
 window.konfirmasiTerima = async function(){
-  const role = getRole();
+  const role = window.getRole();
   if(role !== "SEKOLAH"){ 
     alert("Hanya Sekolah yang bisa konfirmasi terima"); 
     return; 
@@ -440,7 +487,8 @@ window.konfirmasiTerima = async function(){
   }
   
   try {
-    const docRef = doc(db, "distribusi", tanggal);
+    const { updateDoc, doc, getDoc, serverTimestamp } = window.firebaseModules;
+    const docRef = doc(window.db, "distribusi", tanggal);
     const docSnap = await getDoc(docRef);
     
     if(!docSnap.exists()){
@@ -458,13 +506,18 @@ window.konfirmasiTerima = async function(){
     alert("Konfirmasi terima berhasil!");
     document.getElementById("stSekolah").className = "badge green";
     document.getElementById("stSekolah").innerText = "Sudah Terima";
+    
+    document.getElementById("distTanggal").value = "";
+    document.getElementById("terima").value = "";
+    document.getElementById("catatan").value = "";
   } catch(err) {
     alert("Gagal konfirmasi: " + err.message);
   }
 }
 
 function listenToDistribusi(){
-  onSnapshot(collection(db, "distribusi"), (snapshot) => {
+  const { collection, onSnapshot } = window.firebaseModules;
+  onSnapshot(collection(window.db, "distribusi"), (snapshot) => {
     window.distribusiData = [];
     snapshot.forEach((doc) => {
       window.distribusiData.push({ id: doc.id, ...doc.data() });
@@ -505,14 +558,20 @@ window.renderDistribusiList = function(){
 }
 
 // MESSAGE FUNCTIONS
+window.allMessages = [];
+
 window.kirimPesan = async function(){
   const teks = document.getElementById("msgInput").value.trim();
-  if(!teks) return;
+  if(!teks) {
+    alert("Ketik pesan terlebih dahulu");
+    return;
+  }
   
-  const role = getRole();
+  const role = window.getRole();
   
   try {
-    await addDoc(collection(db, "messages"), {
+    const { addDoc, collection, serverTimestamp } = window.firebaseModules;
+    await addDoc(collection(window.db, "messages"), {
       from: role,
       text: teks,
       createdAt: serverTimestamp()
@@ -525,37 +584,101 @@ window.kirimPesan = async function(){
 }
 
 function listenToMessages(){
-  const q = query(collection(db, "messages"), orderBy("createdAt", "asc"));
+  const { collection, query, orderBy, onSnapshot } = window.firebaseModules;
+  const q = query(collection(window.db, "messages"), orderBy("createdAt", "asc"));
   onSnapshot(q, (snapshot) => {
-    const chatBox = document.getElementById("chatBox");
-    if(!chatBox) return;
-    
-    chatBox.innerHTML = "";
+    window.allMessages = [];
     snapshot.forEach((doc) => {
-      const data = doc.data();
-      const div = document.createElement("div");
-      div.className = `chat ${data.from.toLowerCase()}`;
-      div.innerHTML = `<b>${data.from}:</b> ${data.text}`;
-      chatBox.appendChild(div);
+      window.allMessages.push({ id: doc.id, ...doc.data() });
     });
-    
-    chatBox.scrollTop = chatBox.scrollHeight;
+    filterMessages();
   });
 }
 
+window.filterMessages = function(){
+  const filter = document.getElementById("filterRole").value;
+  const chatBox = document.getElementById("chatBox");
+  if(!chatBox) return;
+  
+  chatBox.innerHTML = "";
+  
+  const filteredMessages = filter === "ALL" 
+    ? window.allMessages 
+    : window.allMessages.filter(m => m.from === filter);
+  
+  if(filteredMessages.length === 0){
+    chatBox.innerHTML = "<p style='text-align:center;color:#888;padding:20px'>Belum ada pesan</p>";
+    return;
+  }
+  
+  filteredMessages.forEach(data => {
+    const div = document.createElement("div");
+    div.className = `chat ${data.from.toLowerCase()}`;
+    
+    let dateStr = "Baru saja";
+    let timeStr = "";
+    
+    if(data.createdAt && data.createdAt.toDate) {
+      const date = data.createdAt.toDate();
+      const options = { 
+        weekday: 'long', 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      };
+      dateStr = date.toLocaleDateString('id-ID', options);
+      timeStr = date.toLocaleTimeString('id-ID', { 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      });
+    }
+    
+    div.innerHTML = `
+      <div class="chat-header">
+        <span class="chat-sender">${data.from}</span>
+        <span class="chat-date">${dateStr}</span>
+      </div>
+      <div class="chat-text">${data.text}</div>
+      <div class="chat-time">${timeStr}</div>
+    `;
+    
+    chatBox.appendChild(div);
+  });
+  
+  chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+window.clearMessages = async function(){
+  if(!confirm("Yakin ingin menghapus semua pesan? Ini tidak bisa dibatalkan!")) return;
+  
+  try {
+    const { deleteDoc, doc } = window.firebaseModules;
+    
+    for(const msg of window.allMessages){
+      await deleteDoc(doc(window.db, "messages", msg.id));
+    }
+    
+    alert("Semua pesan berhasil dihapus!");
+  } catch(err) {
+    alert("Gagal hapus pesan: " + err.message);
+  }
+}
+
 // DASHBOARD
-function loadDashboard(){
-  // Load latest menu
+window.loadDashboard = function(){
   if(window.menuData && window.menuData.length > 0){
     const latest = window.menuData[0];
     document.getElementById("dashMenu").innerHTML = `<b>${latest.tanggal}</b>: ${latest.menu}`;
+  } else {
+    document.getElementById("dashMenu").innerText = "Belum ada data menu";
   }
   
-  // Load latest distribusi
   if(window.distribusiData && window.distribusiData.length > 0){
     const latest = window.distribusiData[window.distribusiData.length - 1];
     const status = (latest.statusPenyedia === "DIKIRIM" && latest.statusSekolah === "DITERIMA") ? "✅ SELESAI" : "⏳ PROSES";
     document.getElementById("dashDistribusi").innerHTML = `<b>${latest.tanggal}</b>: Dikirim ${latest.dikirim || 0}, Diterima ${latest.diterima || 0} - ${status}`;
+  } else {
+    document.getElementById("dashDistribusi").innerText = "Belum ada data distribusi";
   }
   
   document.getElementById("dashMsg").innerText = "Lihat di menu Message";
@@ -563,24 +686,26 @@ function loadDashboard(){
 
 // LAPORAN
 window.tampilkanLaporan = function(){
-  // Menu table
   const lapMenuTable = document.getElementById("lapMenuTable");
   lapMenuTable.innerHTML = "<tr><th>Tanggal</th><th>Menu</th><th>Dibuat Oleh</th></tr>";
-  if(window.menuData){
+  if(window.menuData && window.menuData.length > 0){
     window.menuData.forEach(m => {
       lapMenuTable.innerHTML += `<tr><td>${m.tanggal}</td><td>${m.menu}</td><td>${m.createdBy}</td></tr>`;
     });
+  } else {
+    lapMenuTable.innerHTML += `<tr><td colspan="3" style="text-align:center;color:#888">Belum ada data</td></tr>`;
   }
   
-  // Distribusi table
   const lapDistribusiTable = document.getElementById("lapDistribusiTable");
   lapDistribusiTable.innerHTML = "<tr><th>Tanggal</th><th>Dikirim</th><th>Diterima</th><th>Selisih</th><th>Status</th></tr>";
-  if(window.distribusiData){
+  if(window.distribusiData && window.distribusiData.length > 0){
     window.distribusiData.forEach(d => {
       const selisih = (d.dikirim || 0) - (d.diterima || 0);
       const status = (d.statusPenyedia === "DIKIRIM" && d.statusSekolah === "DITERIMA") ? "SELESAI" : "PROSES";
       lapDistribusiTable.innerHTML += `<tr><td>${d.tanggal}</td><td>${d.dikirim || 0}</td><td>${d.diterima || 0}</td><td>${selisih}</td><td>${status}</td></tr>`;
     });
+  } else {
+    lapDistribusiTable.innerHTML += `<tr><td colspan="5" style="text-align:center;color:#888">Belum ada data</td></tr>`;
   }
 }
 
@@ -647,6 +772,7 @@ window.simpanPengaturan = function(){
 }
 
 window.simpanLogo = function(input){
+  if(!input.files || !input.files[0]) return;
   const reader = new FileReader();
   reader.onload = function(e){
     localStorage.setItem("MBG_LOGO", e.target.result);
@@ -664,22 +790,23 @@ function loadSettings(){
   if(logo) document.getElementById("logoPreview").src = logo;
   if(title) {
     document.getElementById("appTitle").innerText = title;
-    document.getElementById("inputJudul").value = title;
+    const inputJudul = document.getElementById("inputJudul");
+    if(inputJudul) inputJudul.value = title;
   }
   if(sub) {
     document.getElementById("appSub").innerText = sub;
-    document.getElementById("inputSub").value = sub;
+    const inputSub = document.getElementById("inputSub");
+    if(inputSub) inputSub.value = sub;
   }
 }
 
-// CHECK LOGIN ON LOAD
-window.addEventListener("load", function(){
+// Auto-init if already logged in
+setTimeout(() => {
   const role = sessionStorage.getItem("MBG_ROLE");
-  if(role){
-    document.getElementById("loginOverlay").style.display = "none";
-    initApp();
+  if(role && window.initApp){
+    window.initApp();
   }
-});
+}, 1000);
 
 </script>
 
